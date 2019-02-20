@@ -1,0 +1,24 @@
+{
+  "name": "back-end",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm dev",
+    "prod": "node ./index.js",
+    "rc": "node ./index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --legacy-watch ./index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "convict": "^4.4.1",
+    "express": "^4.16.4",
+    "mysql": "^2.16.0",
+    "redis": "^2.8.0"
+  },
+  "devDependencies": {
+    "nodemon": "^1.18.9"
+  }
+}

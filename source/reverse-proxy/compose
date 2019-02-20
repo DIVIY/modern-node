@@ -1,0 +1,176 @@
+version: '3.5'
+
+services:
+
+
+
+  reverse-proxy:
+    container_name: ${REVERSE_PROXY_NAME}
+    image: traefik
+    command: --api --docker.exposedbydefault=false
+      - "${APP_PORT}:80" # The HTTP port
+      - "${REVERSE_PROXY_PORT}:8080" # The Web UI (enabled by --api)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+
+  reverse-proxy:
+    container_name: ${REVERSE_PROXY_NAME}
+    image: traefik
+    command:
+      - "--api"
+      - "--logLevel=INFO"
+      - "--defaultentrypoints=http,https"
+      - "--entryPoints=Name:http Address::${APP_HTTP_PORT} Redirect.EntryPoint:https"
+      - "--entryPoints=Name:https Address::${APP_HTTPS_PORT} TLS"
+      - "--web"
+      - "--web.path=/traefik"
+      - "--web.address=:${REVERSE_PROXY_NAME}"
+      - "--web.readonly"
+      - "--web.statistics"
+      - "--docker"
+      - "--docker.watch=true"
+      - "--docker.exposedbydefault=false"
+      - "--docker.domain=example.com"
+      - "--docker.endpoint=unix:///var/run/docker.sock"
+      - "--acme=true"
+      - "--acme.acmelogging=true"
+      - "--acme.email=webmaster@example.com"
+      - "--acme.storage=acme.json"
+      - "--acme.entryPoint=https"
+      - "--acme.onDemand=false"
+      - "--acme.onHostRule=true"
+      - "--acme.httpchallenge=true"
+      - "--acme.httpchallenge.entrypoint=http"
+    ports:
+      - 80:80
+      - 443:443
+    labels:
+      - "traefik.enable=true"  
+      - "traefik.port=${REVERSE_PROXY_PORT}"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.${REVERSE_PROXY_NAME}.frontend.rule=Host:${REVERSE_PROXY_NAME}.${APP_HOST}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+
+      
+
+  database:
+    container_name: ${DATABASE_NAME}
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+    volumes:
+      - ../source/database:/var/lib/postgresql
+
+  metadatabase:
+    container_name: ${METABASE_DATABASE_NAME}
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_USER=${METABASE_USER}
+      - POSTGRES_PASSWORD=${METABASE_PASSWORD}
+      - POSTGRES_DB=${METABASE_DATABASE}
+    volumes:
+      - ../source/metabase:/var/lib/postgresql
+
+  metabase:
+    container_name: ${METABASE_NAME}
+    image: metabase/metabase
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=${METABASE_DATABASE}
+      - MB_DB_PORT=${METABASE_DATABASE_PORT}
+      - MB_DB_USER=${METABASE_USER}
+      - MB_DB_PASS=${METABASE_PASSWORD}
+      - MB_DB_HOST=${METABASE_DATABASE_NAME}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.${METABASE_NAME}.frontend.rule=Host:${METABASE_NAME}.${APP_HOST}"
+    depends_on:
+      - metadatabase
+      - database
+
+  redis:
+    container_name: ${CACHE_NAME}
+    image: redis:alpine
+
+  back-end:
+    container_name: ${BACK_END_NAME}
+    build:
+      dockerfile: ../../docker/back-end.dockerfile
+      context: ../source/back-end
+    command: npm run ${ENVIRONMENT}
+    environment:
+      - DB_HOST=${DATABASE_NAME}
+      - DB_NAME=${POSTGRES_DATABASE}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=${CACHE_NAME}
+    volumes:
+      - ../source/back-end:/home/node/back-end
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.frontend.rule=Host:${APP_HOST},${APP_HOST_ALTERNATE}"
+    depends_on:
+      - database
+      - redis
+
+  front-end:
+    container_name: ${FRONT_END_NAME}
+    build:
+      dockerfile: ../../docker/front-end.dockerfile
+      context: ../source/front-end
+    command: npm run ${ENVIRONMENT}
+    environment:
+      - REDIS_HOST=${CACHE_NAME}
+    volumes:
+      - ../source/front-end:/home/node/front-end
+    depends_on:
+      - back-end
+
+  ab-test-server:
+    container_name: ${AB_TEST_SERVER_NAME}
+    build:
+      dockerfile: ../../docker/ab-test.dockerfile
+      context: ../source/ab-test
+    command: sixpack.server:start
+    environment:
+      - SIXPACK_PORT=${SIXPACK_PORT}
+      - SIXPACK_CONFIG_ENABLED=true
+      - SIXPACK_CONFIG_REDIS_PORT=${CACHE_PORT}
+      - SIXPACK_CONFIG_REDIS_HOST=${CACHE_NAME}
+      - SIXPACK_CONFIG_REDIS_PREFIX=${AB_TEST_WEB_NAME}
+    volumes:
+      - ../source/ab-test:/home/ab-test
+    depends_on:
+      - redis
+
+  ab-test-web:
+    container_name: ${AB_TEST_WEB_NAME}
+    build:
+      dockerfile: ../../docker/ab-test.dockerfile
+      context: ../source/ab-test
+    command: sixpack.web:start
+    environment:
+      - SIXPACK_WEB_PORT=${SIXPACK_WEB_PORT}
+      - SIXPACK_CONFIG_ENABLED=true
+      - SIXPACK_CONFIG_REDIS_PORT=${CACHE_PORT}
+      - SIXPACK_CONFIG_REDIS_HOST=${CACHE_NAME}
+      - SIXPACK_CONFIG_REDIS_PREFIX=${AB_TEST_WEB_NAME}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.${AB_TEST_WEB_NAME}.frontend.rule=Host:${AB_TEST_WEB_NAME}.${APP_HOST}"
+    volumes:
+      - ../source/ab-test:/home/ab-test
+    depends_on:
+      - redis
+
+networks:

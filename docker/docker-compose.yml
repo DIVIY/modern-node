@@ -1,0 +1,233 @@
+version: '3.5'
+
+services:
+  reverse-proxy:
+    container_name: ${REVERSE_PROXY_NAME}
+    image: traefik
+    command:
+      - "--api"
+      - "--logLevel=INFO"
+      - "--web"
+      - "--web.statistics"
+      - "--docker"
+      - "--docker.watch=true"
+      - "--docker.exposedbydefault=false"
+      - "--docker.endpoint=unix:///var/run/docker.sock"
+    ports:
+      - "${APP_HTTP_PORT}:80"
+    labels:
+      - "traefik.enable=true"  
+      - "traefik.port=${REVERSE_PROXY_PORT}"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.${REVERSE_PROXY_NAME}.frontend.rule=Host:${REVERSE_PROXY_NAME}.${APP_HOST}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  database:
+    container_name: ${DATABASE_NAME}
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+    volumes:
+      - ../source/database/db:/var/lib/mysql
+      - ../source/database/initdb:/docker-entrypoint-initdb.d
+
+  redis:
+    container_name: ${CACHE_NAME}
+    image: redis:alpine
+
+  back-end:
+    container_name: ${BACK_END_NAME}
+    build:
+      dockerfile: ../../docker/back-end.dockerfile
+      context: ../source/back-end
+    command: npm run ${ENVIRONMENT}
+    environment:
+      - DB_HOST=${DATABASE_NAME}
+      - DB_NAME=${POSTGRES_DATABASE}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=${CACHE_NAME}
+    volumes:
+      - ../source/back-end:/home/node/back-end
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.frontend.rule=Host:${APP_HOST},${APP_HOST_ALTERNATE}"
+    depends_on:
+      - database
+      - redis
+
+  front-end:
+    container_name: ${FRONT_END_NAME}
+    build:
+      dockerfile: ../../docker/front-end.dockerfile
+      context: ../source/front-end
+    command: npm run ${ENVIRONMENT}
+    environment:
+      - REDIS_HOST=${CACHE_NAME}
+    volumes:
+      - ../source/front-end:/home/node/front-end
+    depends_on:
+      - back-end
+
+  metabase-database:
+    container_name: ${METABASE_DATABASE_NAME}
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${METABASE_USER}
+      - POSTGRES_PASSWORD=${METABASE_PASSWORD}
+      - POSTGRES_DB=${METABASE_DATABASE}
+    volumes:
+      - ../source/metabase-database/db:/var/lib/mysql
+      - ../source/metabase-database/initdb:/docker-entrypoint-initdb.d
+
+  metabase:
+    container_name: ${METABASE_NAME}
+    image: metabase/metabase
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=${METABASE_DATABASE}
+      - MB_DB_PORT=${METABASE_DATABASE_PORT}
+      - MB_DB_USER=${METABASE_USER}
+      - MB_DB_PASS=${METABASE_PASSWORD}
+      - MB_DB_HOST=${METABASE_DATABASE_NAME}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.${METABASE_NAME}.frontend.rule=Host:${METABASE_NAME}.${APP_HOST}"
+    depends_on:
+      - metabase-database
+      - database
+
+  ab-test-server:
+    container_name: ${AB_TEST_SERVER_NAME}
+    build:
+      dockerfile: ../../docker/ab-test.dockerfile
+      context: ../source/ab-test
+    command: sixpack.server:start
+    environment:
+      - SIXPACK_PORT=${SIXPACK_PORT}
+      - SIXPACK_CONFIG_ENABLED=true
+      - SIXPACK_CONFIG_REDIS_PORT=${CACHE_PORT}
+      - SIXPACK_CONFIG_REDIS_HOST=${CACHE_NAME}
+      - SIXPACK_CONFIG_REDIS_PREFIX=${AB_TEST_WEB_NAME}
+    volumes:
+      - ../source/ab-test:/home/ab-test
+    depends_on:
+      - redis
+
+  ab-test-web:
+    container_name: ${AB_TEST_WEB_NAME}
+    build:
+      dockerfile: ../../docker/ab-test.dockerfile
+      context: ../source/ab-test
+    command: sixpack.web:start
+    environment:
+      - SIXPACK_WEB_PORT=${SIXPACK_WEB_PORT}
+      - SIXPACK_CONFIG_ENABLED=true
+      - SIXPACK_CONFIG_REDIS_PORT=${CACHE_PORT}
+      - SIXPACK_CONFIG_REDIS_HOST=${CACHE_NAME}
+      - SIXPACK_CONFIG_REDIS_PREFIX=${AB_TEST_WEB_NAME}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.${AB_TEST_WEB_NAME}.frontend.rule=Host:${AB_TEST_WEB_NAME}.${APP_HOST}"
+    volumes:
+      - ../source/ab-test:/home/ab-test
+    depends_on:
+      - redis
+
+  analytics-database:
+    container_name: ${ANALYTICS_DATABASE_NAME}
+    image: mysql:latest
+    restart: unless-stopped
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - MYSQL_DATABASE=${ANALYTICS_DATABASE}
+      - MYSQL_USER=${ANALYTICS_USER}
+      - MYSQL_PASSWORD=${ANALYTICS_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${ANALYTICS_ROOT_PASSWORD}
+    volumes:
+      - ../source/analytics-database/db:/var/lib/mysql
+      - ../source/analytics-database/initdb:/docker-entrypoint-initdb.d
+
+  analytics:
+    container_name: ${ANALYTICS_NAME}
+    image: crazymax/matomo:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TIME_ZONE}
+      - MEMORY_LIMIT=256M
+      - UPLOAD_MAX_SIZE=16M
+      - OPCACHE_MEM_SIZE=128
+      - REAL_IP_FROM=0.0.0.0/32
+      - REAL_IP_HEADER=X-Forwarded-For
+      - LOG_LEVEL=WARN
+      - SSMTP_HOST=${SSMTP_HOST}
+      - SSMTP_PORT=${SSMTP_PORT}
+      - SSMTP_HOSTNAME=${ANALYTICS_NAME}.${APP_HOST}
+      - SSMTP_USER=${SSMTP_USER}
+      - SSMTP_PASSWORD=${SSMTP_PASSWORD}
+      - SSMTP_TLS=YES
+    volumes:
+      - ../source/analytics:/data
+    labels:
+      - traefik.enable=true
+      - traefik.backend=${ANALYTICS_NAME}
+      - traefik.port=${ANALYTICS_PORT}
+      - traefik.${ANALYTICS_NAME}.frontend.rule=Host:${ANALYTICS_NAME}.${APP_HOST}
+    depends_on:
+      - analytics-database
+      - redis
+
+  analytics-cron:
+    container_name: ${ANALYTICS_CRON_NAME}
+    image: crazymax/matomo:latest
+    restart: unless-stopped
+    environment:
+      - SIDECAR_CRON=1
+      - "CRON_GEOIP=0 2 * * *"
+      - "CRON_ARCHIVE=0 * * * *"
+      - ARCHIVE_OPTIONS=--concurrent-requests-per-website=3
+      - TZ=${TIME_ZONE}
+      - MEMORY_LIMIT=256M
+      - UPLOAD_MAX_SIZE=16M
+      - OPCACHE_MEM_SIZE=128
+      - REAL_IP_FROM=0.0.0.0/32
+      - REAL_IP_HEADER=X-Forwarded-For
+      - LOG_LEVEL=WARN
+      - SSMTP_HOST=${SSMTP_HOST}
+      - SSMTP_PORT=${SSMTP_PORT}
+      - SSMTP_HOSTNAME=${ANALYTICS_NAME}.${APP_HOST}
+      - SSMTP_USER=${SSMTP_USER}
+      - SSMTP_PASSWORD=${SSMTP_PASSWORD}
+      - SSMTP_TLS=YES
+    volumes:
+      - ../source/analytics:/data
+    depends_on:
+      - analytics
+
+  netdata:
+    container_name: ${NETDATA_NAME}
+    image: titpetric/netdata
+    restart: unless-stopped
+    cap_add:
+        - SYS_PTRACE
+    volumes:
+      - '/proc:/host/proc:ro'
+      - '/sys:/host/sys:ro'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    labels:
+      - traefik.enable=true
+      - traefik.backend=${NETDATA_NAME}
+      - traefik.port=${NETDATA_PORT}
+      - traefik.${NETDATA_NAME}.frontend.rule=Host:${NETDATA_NAME}.${APP_HOST}
+
+networks:
+  default:
+    name: ${NETWORK_NAME}

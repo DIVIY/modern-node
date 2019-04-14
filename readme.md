@@ -43,6 +43,8 @@ In the command line, type:
 make start
 make help
 ```
+
+Open up your web browser and go to URL displayed as ```APP_HOST``` from the ```make help``` output.
 </p></details>
 
 <details><summary><small>(click me 🖱️)</small><h1>Developer Guide</h1></summary>

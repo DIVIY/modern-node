@@ -1,27 +1,82 @@
-# https://news.ycombinator.com/item?id=19052830
-# https://news.ycombinator.com/item?id=14836340
-# https://news.ycombinator.com/item?id=15041986
+ENV_FILE := ./.env
 
-# mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
-# current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
-# project = $(current_dir)
-# project = $(notdir $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST))))))
-
-include ./.env
+include ${ENV_FILE}
 export
 
-# fix front-end so the server stands up and stays up.
+# Color chart and related variables
+RESET     := $(shell tput -Txterm sgr0)
+BLACK     := $(shell tput -Txterm setaf 0)
+RED       := $(shell tput -Txterm setaf 1)
+GREEN     := $(shell tput -Txterm setaf 2)
+YELLOW    := $(shell tput -Txterm setaf 3)
+BLUE      := $(shell tput -Txterm setaf 4)
+MAGENTA   := $(shell tput -Txterm setaf 5)
+TURQUOISE := $(shell tput -Txterm setaf 6)
+WHITE     := $(shell tput -Txterm setaf 7)
+SMUL      := $(shell tput smul)
+RMUL      := $(shell tput rmul)
 
-# This has an example of example what i am trying to do.
-# https://github.com/mrcoles/node-react-docker-compose
+define LABEL_MAKER
+	@echo ${1}
+	@echo ================================================================================
+	@echo ${2}
+	@echo ================================================================================
+	@echo
+	@tput -Txterm sgr0 # ${RESET} won't work here for some reason
+endef
 
-# setup redis
-# tests for express and for code nad stuff.
-# compile, or is that tied to react?
+OUTPUT_MAKE_COMMANDS = \
+	%help; \
+	use Data::Dumper; \
+	while(<>) { \
+		if (/^([_a-zA-Z\-]+)\s*:.*\#\#(?:@([a-zA-Z\-_\s]+))?\t(.*)$$/ \
+			|| /^([_a-zA-Z\-]+)\s*:.*\#\#(?:@([a-zA-Z\-]+))?\s(.*)$$/) { \
+			$$c = $$2; $$t = $$1; $$d = $$3; \
+			push @{$$help{$$c}}, [$$t, $$d, $$ARGV] unless grep { grep { grep /^$$t$$/, $$_->[0] } @{$$help{$$_}} } keys %help; \
+		} \
+	}; \
+	for (sort keys %help) { \
+		printf("${RED}%24s:${RESET}\n\n", $$_); \
+		for (@{$$help{$$_}}) { \
+			printf("%s%25s${RESET}%s  %s${RESET}\n", \
+				( $$_->[2] eq "Makefile" || $$_->[0] eq "help" ? "${YELLOW}" : "${MAGENTA}"), \
+				$$_->[0], \
+				( $$_->[2] eq "Makefile" || $$_->[0] eq "help" ? "${GREEN}" : "${WHITE}"), \
+				$$_->[1] \
+			); \
+		} \
+		print "\n"; \
+	}
 
-# site speeder upper : https://news.ycombinator.com/item?id=19122727
+OUTPUT_ENV_VARIABLES = \
+	%help; \
+	use Data::Dumper; \
+	while(<>) { \
+		if (/^([_a-zA-Z\-\_]*)(=)(.*)/) { \
+			push @{$$help{$$2}}, [$$1, $$3, $$ARGV]; \
+		} \
+	}; \
+	for (sort keys %help) { \
+		for (@{$$help{$$_}}) { \
+			printf("%s%24s${RESET}%s  %s${RESET}\n", "${TURQUOISE}", $$_->[0], "${WHITE}", $$_->[1] ); \
+		} \
+		print "\n"; \
+	}
 
-dev: up port-up
+.DEFAULT_GOAL := help
+
+help: ##@Utility Show this help.
+	@echo ''
+	@printf "%36s " "${BLUE}VARIABLES"
+	@echo "${RESET}"
+	@echo ''
+	@perl -e '$(OUTPUT_ENV_VARIABLES)' $(ENV_FILE)
+	@printf "%36s " "${YELLOW}COMMANDS"
+	@echo "${RESET}"
+	@echo ''
+	@perl -e '$(OUTPUT_MAKE_COMMANDS)' $(MAKEFILE_LIST)
+
+dev: start port-start ##@Development Development starts here.
 	@-powershell start powershell {make jump ${BACK_END_NAME}}
 	@-powershell start powershell {make logs}
 	@-powershell start powershell {ngrok http ${APP_HTTP_PORT}}
@@ -33,60 +88,84 @@ dev: up port-up
 		${REVERSE_PROXY_NAME}.${APP_HOST} \
 		${NETDATA_NAME}.${APP_HOST} \
 		${APP_HOST}:${NGROK_PORT} \
-		${APP_HOST}:${PORTAINER_PORT} & # This needs to be the last step.
+		${APP_HOST}:${PORTAINER_PORT} & # This needs to be in the last step.
 
-up:
-	docker-compose -p "${APP}" -f ./docker/docker-compose.yml up -d
+start: ##@Development docker-compose up
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		up \
+		-d
 
-down: port-down
-	docker-compose -p "${APP}" -f ./docker/docker-compose.yml down -v --remove-orphans
+stop: port-stop ##@Development docker-compose down
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		down \
+		-v \
+		--remove-orphans
 
-build:
-	docker-compose -p "${APP}" -f ./docker/docker-compose.yml rm -vsf
-	docker-compose -p "${APP}" -f ./docker/docker-compose.yml down -v --remove-orphans
-	docker-compose -p "${APP}" -f ./docker/docker-compose.yml build
+build: stop ##@Development docker-compose build
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		rm \
+		-vsf
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		build
 
-##########################################
-
-test:
+analyze: ##@TBD -- Static Code Analyzer
 	@:
 
-compile:
+lint: ##@TBD -- Linter
+	@:
+
+test: ##@TBD -- Unit and Integration Tests
+	@:
+
+compile: ##@TBD -- Compile to Static Binaries
 	@:
  
-##########################################
+logs: ##@Development docker-compose logs
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		logs \
+		-f
 
-logs:
-	docker-compose -p "${APP}" -f ./docker/docker-compose.yml logs -f
+run: ##@Development Argument-Aware Run Command. Use like 'make run {container_name} {command} ...{args}'
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml run \
+		$(filter-out $@,$(MAKECMDGOALS))
 
-# Argument-Aware Run Command. Use like 'make run {container_name} {command} ...{args}'
-run:
-	docker-compose -p "${APP}" -f ./docker/docker-compose.yml run $(filter-out $@,$(MAKECMDGOALS))
+jump: ##@Development Argument-Aware Jump Command. Use like 'make jump {container_name}'
+	docker exec -it $(filter-out $@,$(MAKECMDGOALS)) bash
 
-# Argument-Aware Jump Command. Use like 'make jump {container_name}'
-jump:
-	docker exec -it $(filter-out $@,$(MAKECMDGOALS)) sh
+%:
+	@: # Silently do nothing; Side effect: this swallows 'makefile: undefined make command error' messages.
 
-%: # Any non-defined command ends up here; enables us to accept any arbitrary arguments used in Jump
-	@: # Silently do nothing; Side effect: this swallows 'undefined make command error' messages.
+port-start: ##@Docker Management	Run Portainer
+	-docker run \
+		--name=${PORTAINER_NAME} \
+		-d \
+		-p ${PORTAINER_PORT}:9000 \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		portainer/portainer \
+		--no-auth
 
-# Docker Management Commands
-port-up:
-	-docker run --name=${PORTAINER_NAME} -d -p ${PORTAINER_PORT}:9000 -v /var/run/docker.sock:/var/run/docker.sock portainer/portainer --no-auth
-
-port-down:
+port-stop: ##@Docker Management	Kill and Remove Portainer
 	-docker kill ${PORTAINER_NAME}
 	-docker rm ${PORTAINER_NAME}
 	
-list:
-	@echo '----- List Docker System' & echo ''
+list: ##@Docker Management	List Docker System
+	$(call LABEL_MAKER,${TURQUOISE},'List Docker System')
 	docker container ls
+	@echo ''
 	docker image ls
+	@echo ''
 	docker volume ls
 
-clean:
-	@echo '----- Clean Docker System' & echo ''
-	docker container prune -f
-	docker image prune -f
-	docker network prune -f
-	docker volume prune -f
+clean: ##@Docker Management	Clean Docker System

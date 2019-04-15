@@ -20,14 +20,18 @@ Modern Web Stack utilizing NodeJS as its central software development language. 
 <details><summary><sub><sup>(click me 🖱️)</sup></sub></summary>
 <p>
 
+---
 ```
 Sections are collapsed by default. To expand them, click on their heading just like you did here!
 ```
+
+---
 </p></details>
 
 <details><summary>Installation</summary>
 <p>
 
+---
 ```
 How to install this.
 ```
@@ -40,11 +44,14 @@ git clone https://github.com/mstraughan86/modern-node.git
 cd modern-node
 make build
 ```
+
+---
 </p></details>
 
 <details><summary>User Guide</summary>
 <p>
 
+---
 ```
 How to use this.
 ```
@@ -56,10 +63,14 @@ make help
 ```
 
 Open up your web browser and go to URL displayed as ```APP_HOST``` from the ```make help``` output.
+
+---
 </p></details>
 
 <details><summary>Developer Guide</summary>
 <p>
+  
+---
 
 ```
 How to develop this.
@@ -76,20 +87,27 @@ make stop
 ```
 
 You must also close out of VSCode, Firefox and close out of the terminal to finish shutting down the development environment.
+
+---
 </p></details>
 
 
 <details><summary>Roadmap</summary>
 <p>
-
+  
+---
 ```
 Where this project should go; the "Wishlist".
 ```
+
+---
 </p></details>
 
 
 <details><summary>About</summary>
+<p>
 
+---
 ### Repository
 ```
 https://github.com/mstraughan86/modern-node
@@ -109,4 +127,6 @@ Financial independence to pursue my true life goals.
 ```
 Proprietary Code written by Michael Straughan.
 ```
-</details>
+
+---
+</p></details>

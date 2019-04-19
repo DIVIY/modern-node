@@ -14,9 +14,24 @@ Modern Web Stack utilizing NodeJS as its central software development platform. 
 - Web Analytics - Matomo
 - Monitoring - Netdata
 
-<details><summary><small>(click me 🖱️)</small><h1>Installation</h1></summary>
+## Table of Contents
+
+
+<details><summary><sub><sup>(click me 🖱️)</sup></sub></summary>
 <p>
 
+---
+```
+Sections are collapsed by default. To expand them, click on their heading just like you did here!
+```
+
+---
+</p></details>
+
+<details><summary>Installation</summary>
+<p>
+
+---
 ```
 How to install this.
 ```
@@ -29,11 +44,14 @@ git clone https://github.com/mstraughan86/modern-node.git
 cd modern-node
 make build
 ```
+
+---
 </p></details>
 
-<details><summary><small>(click me 🖱️)</small><h1>User Guide</h1></summary>
+<details><summary>User Guide</summary>
 <p>
 
+---
 ```
 How to use this.
 ```
@@ -45,10 +63,14 @@ make help
 ```
 
 Open up your web browser and go to URL displayed as ```APP_HOST``` from the ```make help``` output.
+
+---
 </p></details>
 
-<details><summary><small>(click me 🖱️)</small><h1>Developer Guide</h1></summary>
+<details><summary>Developer Guide</summary>
 <p>
+  
+---
 
 ```
 How to develop this.
@@ -65,41 +87,46 @@ make stop
 ```
 
 You must also close out of VSCode, Firefox and close out of the terminal to finish shutting down the development environment.
+
+---
 </p></details>
 
 
-<details><summary><small>(click me 🖱️)</small><h1>Roadmap</h1></summary>
+<details><summary>Roadmap</summary>
 <p>
-
+  
+---
 ```
 Where this project should go; the "Wishlist".
 ```
+
+---
 </p></details>
 
-<details><summary>Repository</summary>
 
+<details><summary>About</summary>
+<p>
+
+---
+### Repository
 ```
 https://github.com/mstraughan86/modern-node
 ```
-</details>
 
-<details><summary>Author and Contributors</summary>
-
+### Author and Contributors
 ```
 Michael Straughan
 ```
-</details>
 
-<details><summary>Why?</summary>
-
+### Why?
 ```
 Financial independence to pursue my true life goals.
 ```
-</details>
 
-<details><summary>License</summary>
-
+### License
 ```
 Proprietary Code written by Michael Straughan.
 ```
-</details>
+
+---
+</p></details>

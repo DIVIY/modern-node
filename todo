@@ -1,0 +1,32 @@
+# fix front-end so the server stands up and stays up.
+# This has an example of example what i am trying to do.
+# https://github.com/mrcoles/node-react-docker-compose
+
+# setup redis
+# tests for express and for code and stuff.
+# compile, or is that tied to react?
+
+# site speeder upper : https://news.ycombinator.com/item?id=19122727
+
+# Makefile Research and Development Sources:
+# https://news.ycombinator.com/item?id=19052830
+# https://news.ycombinator.com/item?id=14836340
+# https://news.ycombinator.com/item?id=15041986
+
+
+
+
+Web Framework - Express.js
+HTML Template - Handlebars.js
+CSS Framework - Bulma
+
+
+From how webpack seems, i should include environemnt specific values.
+sofar,
+mode - development
+devtool: inline-source-map or omit the devtool option
+
+
+how do i pass in the .env file into our nodejs application?
+pass it through docker-compose somehow right?
+or do you just make the environmental values from docker compose and use that explicitly instead of insecurly giving a single container ALL OF OUR ENV VARS

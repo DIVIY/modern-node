@@ -65,6 +65,9 @@ OUTPUT_ENV_VARIABLES = \
 
 .DEFAULT_GOAL := help
 
+%: # Enable argument aware commands. # Silently do nothing; Side effect: this swallows 'makefile: undefined make command error' messages.
+	@:
+
 help: ##@Utility Show this help.
 	@echo ''
 	@printf "%36s " "${BLUE}VARIABLES"
@@ -74,10 +77,38 @@ help: ##@Utility Show this help.
 	@printf "%36s " "${YELLOW}COMMANDS"
 	@echo "${RESET}"
 	@echo ''
+	@printf "%s%25s${RESET}%s  %s" "${YELLOW}" "make command" "${GREEN}" "Description of, how to use the, or"
+	@echo ''
+	@printf "%27s%s" "" "equivalent for this command."
+	@echo "${RESET}"
+	@echo ''
 	@perl -e '$(OUTPUT_MAKE_COMMANDS)' $(MAKEFILE_LIST)
 
-dev: start port-start ##@Development Development starts here.
+build: stop ##@Installation docker-compose build
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		rm \
+		-vsf
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		build
+
+dev: quickstart port-start ##@Development Develop the back-end and front-end.
 	@-powershell start powershell {make jump ${BACK_END_NAME}}
+	@-powershell start powershell {make launch ${BACK_END_NAME} npm run watch}
+	@-powershell start powershell {make logs}
+	@-powershell start powershell {ngrok http ${APP_HTTP_PORT}}
+	@-code -n .
+	@-firefox -private ${APP_HOST} \
+		${REVERSE_PROXY_NAME}.${APP_HOST} \
+		${APP_HOST}:${NGROK_PORT} \
+		${APP_HOST}:${PORTAINER_PORT} &
+
+full-dev: start port-start ##@Development Launch full development stack.
+	@-powershell start powershell {make jump ${BACK_END_NAME}}
+	@-powershell start powershell {make launch ${BACK_END_NAME} npm run watch}
 	@-powershell start powershell {make logs}
 	@-powershell start powershell {ngrok http ${APP_HTTP_PORT}}
 	@-code -n .
@@ -88,16 +119,16 @@ dev: start port-start ##@Development Development starts here.
 		${REVERSE_PROXY_NAME}.${APP_HOST} \
 		${NETDATA_NAME}.${APP_HOST} \
 		${APP_HOST}:${NGROK_PORT} \
-		${APP_HOST}:${PORTAINER_PORT} & # This needs to be in the last step.
+		${APP_HOST}:${PORTAINER_PORT} &
 
-start: ##@Development docker-compose up
+start: ##@User Commands	docker-compose up
 	docker-compose \
 		-p "${APP}" \
 		-f ./docker/docker-compose.yml \
 		up \
 		-d
 
-stop: port-stop ##@Development docker-compose down
+stop: port-stop ##@User Commands	docker-compose down
 	docker-compose \
 		-p "${APP}" \
 		-f ./docker/docker-compose.yml \
@@ -105,16 +136,13 @@ stop: port-stop ##@Development docker-compose down
 		-v \
 		--remove-orphans
 
-build: stop ##@Development docker-compose build
+quickstart: ##@User Commands	docker-compose up back-end front-end
 	docker-compose \
 		-p "${APP}" \
 		-f ./docker/docker-compose.yml \
-		rm \
-		-vsf
-	docker-compose \
-		-p "${APP}" \
-		-f ./docker/docker-compose.yml \
-		build
+		up \
+		-d \
+		${BACK_END_NAME} 
 
 analyze: ##@TBD -- Static Code Analyzer
 	@:
@@ -135,19 +163,17 @@ logs: ##@Development docker-compose logs
 		logs \
 		-f
 
-run: ##@Development Argument-Aware Run Command. Use like 'make run {container_name} {command} ...{args}'
+launch: ##@Development make run {container_name} {command} ...{args}
 	docker-compose \
 		-p "${APP}" \
 		-f ./docker/docker-compose.yml run \
 		$(filter-out $@,$(MAKECMDGOALS))
 
-jump: ##@Development Argument-Aware Jump Command. Use like 'make jump {container_name}'
-	docker exec -it $(filter-out $@,$(MAKECMDGOALS)) bash
+jump: ##@Development make jump {container_name}
+	docker exec -it $(filter-out $@,$(MAKECMDGOALS)) sh
 
-%:
-	@: # Silently do nothing; Side effect: this swallows 'makefile: undefined make command error' messages.
 
-port-start: ##@Docker Management	Run Portainer
+port-start: ##@Infrastructure Management	Run Portainer
 	-docker run \
 		--name=${PORTAINER_NAME} \
 		-d \
@@ -156,11 +182,11 @@ port-start: ##@Docker Management	Run Portainer
 		portainer/portainer \
 		--no-auth
 
-port-stop: ##@Docker Management	Kill and Remove Portainer
+port-stop: ##@Infrastructure Management	Kill and Remove Portainer
 	-docker kill ${PORTAINER_NAME}
 	-docker rm ${PORTAINER_NAME}
 	
-list: ##@Docker Management	List Docker System
+list: ##@Infrastructure Management	List Docker System
 	$(call LABEL_MAKER,${TURQUOISE},'List Docker System')
 	docker container ls
 	@echo ''
@@ -168,4 +194,64 @@ list: ##@Docker Management	List Docker System
 	@echo ''
 	docker volume ls
 
-clean: ##@Docker Management	Clean Docker System
+clean: ##@Infrastructure Management	Clean Docker System
+	$(call LABEL_MAKER,${RED},'Clean Docker System')
+	@echo ''
+	docker container prune -f
+	docker image prune -f
+	docker network prune -f
+	docker volume prune -f
+
+hotswap: ##@Infrastructure Management	docker-compose down, build, create, start {target}
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		stop \
+		-t 1 \
+		$(filter-out $@,$(MAKECMDGOALS))
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		build \
+		$(filter-out $@,$(MAKECMDGOALS))
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		up \
+		--no-start \
+		$(filter-out $@,$(MAKECMDGOALS))
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		start \
+		$(filter-out $@,$(MAKECMDGOALS))
+
+target-stop: ##@Infrastructure Management	docker-compose down {target}
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		stop \
+		-t 1 \
+		$(filter-out $@,$(MAKECMDGOALS))
+		
+target-build: ##@Infrastructure Management	docker-compose build {target}
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		build \
+		$(filter-out $@,$(MAKECMDGOALS))
+
+target-create: ##@Infrastructure Management	docker-compose create {target}
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		up \
+		--no-start \
+		$(filter-out $@,$(MAKECMDGOALS))
+
+target-start: start ##@Infrastructure Management	docker-compose start {target}
+	docker-compose \
+		-p "${APP}" \
+		-f ./docker/docker-compose.yml \
+		start \
+		$(filter-out $@,$(MAKECMDGOALS))

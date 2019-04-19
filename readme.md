@@ -2,14 +2,14 @@
 
 ## Description
 
-Modern Web Stack utilizing NodeJS as its central software development language. This software stack includes:
+Modern Web Stack utilizing NodeJS as its central software development platform. This software stack includes:
 
 - Reverse Proxy - Traefik
 - Database - Postgres
 - Database Analytics - Metabase
 - Cache - Redis
 - Backend - NodeJS
-- Frontend - React
+- Web Framework - Express.js, Handlebars.js, Bulma, Webpack
 - AB Testing - Sixpack
 - Web Analytics - Matomo
 - Monitoring - Netdata

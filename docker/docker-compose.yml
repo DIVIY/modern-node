@@ -38,6 +38,8 @@ services:
   redis:
     container_name: ${CACHE_NAME}
     image: redis:alpine
+    depends_on:
+      - database
 
   back-end:
     container_name: ${BACK_END_NAME}
@@ -51,8 +53,10 @@ services:
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_HOST=${CACHE_NAME}
+      - ENVIRONMENT_FULL_NAME=${ENVIRONMENT_FULL_NAME}
     volumes:
       - ../source/back-end:/home/node/back-end
+      - /home/node/back-end/node_modules
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=${NETWORK_NAME}"
@@ -60,19 +64,22 @@ services:
     depends_on:
       - database
       - redis
+      - reverse-proxy
 
-  front-end:
-    container_name: ${FRONT_END_NAME}
-    build:
-      dockerfile: ../../docker/front-end.dockerfile
-      context: ../source/front-end
-    command: npm run ${ENVIRONMENT}
-    environment:
-      - REDIS_HOST=${CACHE_NAME}
-    volumes:
-      - ../source/front-end:/home/node/front-end
-    depends_on:
-      - back-end
+  # front-end:
+  #   container_name: ${FRONT_END_NAME}
+  #   build:
+  #     dockerfile: ../../docker/front-end.dockerfile
+  #     context: ../source/front-end
+  #   command: npm run ${ENVIRONMENT}
+  #   environment:
+  #     - REDIS_HOST=${CACHE_NAME}
+  #   volumes:
+  #     - ../source/front-end:/home/node/front-end
+  #   depends_on:
+  #     - back-end
+      # - redis
+      # - reverse-proxy
 
   metabase-database:
     container_name: ${METABASE_DATABASE_NAME}
@@ -103,6 +110,7 @@ services:
     depends_on:
       - metabase-database
       - database
+      - reverse-proxy
 
   ab-test-server:
     container_name: ${AB_TEST_SERVER_NAME}
@@ -141,6 +149,7 @@ services:
       - ../source/ab-test:/home/ab-test
     depends_on:
       - redis
+      - reverse-proxy
 
   analytics-database:
     container_name: ${ANALYTICS_DATABASE_NAME}
@@ -184,6 +193,7 @@ services:
     depends_on:
       - analytics-database
       - redis
+      - reverse-proxy
 
   analytics-cron:
     container_name: ${ANALYTICS_CRON_NAME}
@@ -227,6 +237,8 @@ services:
       - traefik.backend=${NETDATA_NAME}
       - traefik.port=${NETDATA_PORT}
       - traefik.${NETDATA_NAME}.frontend.rule=Host:${NETDATA_NAME}.${APP_HOST}
+    depends_on:
+      -  reverse-proxy
 
 networks:
   default:

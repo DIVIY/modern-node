@@ -30,3 +30,15 @@ devtool: inline-source-map or omit the devtool option
 how do i pass in the .env file into our nodejs application?
 pass it through docker-compose somehow right?
 or do you just make the environmental values from docker compose and use that explicitly instead of insecurly giving a single container ALL OF OUR ENV VARS
+
+
+
+
+
+// what do i want?
+I want a layout handlebars directory layout example
+
+i want a fixed webpack config file so that i am using the correct handlebars direectories
+I want an example route working with a dynamic replaoding something
+I want to understand the difference between different kinds of static and dynamic pages
+i want to try to write out the layout and to do on a piece of paper to assistz

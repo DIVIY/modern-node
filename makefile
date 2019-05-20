@@ -99,11 +99,9 @@ dev: quickstart port-start ##@Development Develop the back-end and front-end.
 	@-powershell start powershell {make jump ${BACK_END_NAME}}
 	@-powershell start powershell {make launch ${BACK_END_NAME} npm run watch}
 	@-powershell start powershell {make logs}
-	@-powershell start powershell {ngrok http ${APP_HTTP_PORT}}
 	@-code -n .
-	@-firefox -private ${APP_HOST} \
+	@-firefox -private ${APP_HOST}:${BACK_END_PORT} \
 		${REVERSE_PROXY_NAME}.${APP_HOST} \
-		${APP_HOST}:${NGROK_PORT} \
 		${APP_HOST}:${PORTAINER_PORT} &
 
 full-dev: start port-start ##@Development Launch full development stack.
@@ -112,7 +110,7 @@ full-dev: start port-start ##@Development Launch full development stack.
 	@-powershell start powershell {make logs}
 	@-powershell start powershell {ngrok http ${APP_HTTP_PORT}}
 	@-code -n .
-	@-firefox -private ${APP_HOST} \
+	@-firefox -private ${APP_HOST}: \
 		${METABASE_NAME}.${APP_HOST} \
 		${AB_TEST_WEB_NAME}.${APP_HOST} \
 		${ANALYTICS_NAME}.${APP_HOST} \
@@ -163,7 +161,7 @@ logs: ##@Development docker-compose logs
 		logs \
 		-f
 
-launch: ##@Development make run {container_name} {command} ...{args}
+launch: ##@Development make launch {container_name} {command} ...{args}
 	docker-compose \
 		-p "${APP}" \
 		-f ./docker/docker-compose.yml run \

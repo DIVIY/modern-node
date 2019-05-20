@@ -13,6 +13,7 @@ services:
       - "--docker.watch=true"
       - "--docker.exposedbydefault=false"
       - "--docker.endpoint=unix:///var/run/docker.sock"
+      - "--docker.network=${NETWORK_NAME}"
     ports:
       - "${APP_HTTP_PORT}:80"
     labels:
@@ -53,19 +54,25 @@ services:
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_HOST=${CACHE_NAME}
+      - APPLICATION_NAME=${APP}
+      - APPLICATION_PORT=${BACK_END_PORT}
       - ENVIRONMENT_FULL_NAME=${ENVIRONMENT_FULL_NAME}
     volumes:
       - ../source/back-end:/home/node/back-end
       - /home/node/back-end/node_modules
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=${NETWORK_NAME}"
-      - "traefik.frontend.rule=Host:${APP_HOST},${APP_HOST_ALTERNATE}"
+    ports:
+      - "${BACK_END_PORT}:${BACK_END_PORT}"
+    # Traefik doesnt work very well with NodeJS. Conclusion was to move to an alternative solution.
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.docker.network=${NETWORK_NAME}"
+    #   - "traefik.frontend.rule=Host:${APP_HOST},${APP_HOST_ALTERNATE}"
     depends_on:
       - database
       - redis
       - reverse-proxy
 
+  # Decided to not use a front-end framework, but to use a Template + SCSS + API Solution
   # front-end:
   #   container_name: ${FRONT_END_NAME}
   #   build:
